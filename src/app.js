@@ -1,5 +1,5 @@
 import { mapListToDOMElements, createDOMElem } from './DOMInteractions.js';
-import { getShowsByKey } from './requests.js'
+import { getShowsByKey, getShowsById } from './requests.js'
 
 class TvApp {
     constructor() {
@@ -34,36 +34,69 @@ class TvApp {
     }
 
     fetchAndDisplayShows = () => {
-        getShowsByKey(this.selectedName).then(shows => this.renderCards(shows));
+        getShowsByKey(this.selectedName).then(shows => this.renderCardsOnList(shows));
     }
 
-    renderCards = (shows) => {
+    renderCardsOnList = (shows) => {
+        Array.from(document.querySelectorAll('[data-show-id]')).forEach(btn => btn.removeEventListener('click', this.openShowDetails));
         this.viewElems.showsWrapper.innerHTML = '';
-
-        for ( const {show} of shows) this.createShowCard(show);
+        for ( const {show} of shows) {
+            const card = this.createShowCard(show, false);
+            this.viewElems.showsWrapper.appendChild(card);
+        }
     }
 
-    createShowCard = (show) => {
+    openShowDetails = event => {
+        const { showId } = event.target.dataset
+        console.log('showId',showId)
+        getShowsById(showId).then(show => {
+            console.log('show', show)
+            const card = this.createShowCard(show, true);
+            this.viewElems.showPreview.appendChild(card);
+            this.viewElems.showPreview.style.display = 'block';
+        })
+    }
+
+    closeShowDetails = (event) => {
+        const { showId } = event.target.dataset
+        const closeBtn =  document.querySelector(`[data-show-id = "${showId}"]`)
+        closeBtn.removeEventListener('click', this.closeShowDetail);
+        this.viewElems.showPreview.style.display = 'none';
+        this.viewElems.showPreview.innerHTML = '';
+    }
+
+    createShowCard = (show, isDetailed) => {
         const divCard =  createDOMElem('div', 'card');
         const divCardBody =  createDOMElem('div', 'card-body');
         const h5 =  createDOMElem('h5', 'card-title', show.name);
-        const button =  createDOMElem('button', 'btn btn-primary', 'Show details');
+        const button =  createDOMElem('button', 'btn btn-primary', isDetailed? 'Close': 'Show details');
         let img;
         let p;
         
-        show.image ? img =  createDOMElem('img', 'card-img-top', null,  show.image.medium) : img =  createDOMElem('img', 'card-img-top', null,  'https://via.placeholder.com/210/295');
-        show.summary ?  p = createDOMElem('p', 'card-text', `${show.summary.slice(0,80)}...`): p = createDOMElem('p', 'card-text', 'There is no summary for this show yet.');
+        if(show.image) {
+           if (isDetailed) {
+               img = createDOMElem('div', 'card-preview-bg');
+               img.style.backgroundImage = `url('${show.image.original}')`;
+            } else {
+               img =  createDOMElem('img', 'card-img-top', null, show.image.medium) 
+            }
+        } else {
+            img =  createDOMElem('img', 'card-img-top', null,  'https://via.placeholder.com/210/295');
+        }
+
+        show.summary ?  p = createDOMElem('p', 'card-text', `${isDetailed ? show.summary: show.summary.slice(0,80)}...`): p = createDOMElem('p', 'card-text', 'There is no summary for this show yet.');
+        button.dataset.showId = show.id
+
+        isDetailed ? button.addEventListener('click', this.closeShowDetails) : button.addEventListener('click', this.openShowDetails)
         
         divCard.appendChild(divCardBody);
         divCardBody.appendChild(img);
         divCardBody.appendChild(h5);
         divCardBody.appendChild(p);
         divCardBody.appendChild(button);
-        
-        this.viewElems.showsWrapper.appendChild(divCard);
 
+        return divCard
     }
-
 }
 
 document.addEventListener('DOMContentLoaded', new TvApp());
